@@ -1,0 +1,10 @@
+ants
+bat
+bedbugs
+cockroach
+flies
+frog
+silverfish
+snake
+spiders
+termites
