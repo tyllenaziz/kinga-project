@@ -1,7 +1,7 @@
 import os
 import random
 import datetime
-import requests # NEW LIBRARY
+import requests
 import torch
 import torch.nn as nn
 from torchvision import transforms, models
@@ -13,16 +13,24 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # --- BREVO EMAIL CONFIGURATION ---
-# We use os.environ.get to load from the cloud settings
+# Loads from Environment Variables (Safe for GitHub)
 BREVO_API_KEY = os.environ.get("BREVO_API_KEY") 
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL")
 
 app = Flask(__name__)
 CORS(app)
 
-# DB CONFIG
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://kinga_user:kinga123@localhost/kinga_db'
+# --- DATABASE CONFIGURATION (Cloud & Local Support) ---
+# This block checks if we are on the Cloud. If not, it uses your local settings.
+DB_HOST = os.environ.get('DB_HOST', 'localhost')
+DB_USER = os.environ.get('DB_USER', 'kinga_user')
+DB_PASS = os.environ.get('DB_PASS', 'kinga123')
+DB_NAME = os.environ.get('DB_NAME', 'kinga_db')
+DB_PORT = os.environ.get('DB_PORT', '3306')
+
+app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 UPLOAD_FOLDER = 'static/uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -62,15 +70,17 @@ class Prediction(db.Model):
 
 # --- BREVO EMAIL FUNCTION ---
 def send_real_email_brevo(to_email, otp_code):
+    if not BREVO_API_KEY:
+        print("Skipping email: No API Key found.")
+        return
+
     url = "https://api.brevo.com/v3/smtp/email"
-    
     headers = {
         "accept": "application/json",
         "api-key": BREVO_API_KEY,
         "content-type": "application/json"
     }
     
-    # HTML Email Design
     html_content = f"""
     <html>
       <body style="font-family: Arial, sans-serif; padding: 20px;">
@@ -122,10 +132,13 @@ def signup():
     db.session.add(new_user)
     db.session.commit()
     
-    # SEND REAL EMAIL
-    send_real_email_brevo(data['email'], otp)
+    # Send Email (Or print if no key)
+    if BREVO_API_KEY:
+        send_real_email_brevo(data['email'], otp)
+    else:
+        print(f"--- LOCAL MODE: OTP IS {otp} ---")
     
-    return jsonify({'message': 'Signup successful. Check your Email.'})
+    return jsonify({'message': 'Signup successful.'})
 
 @app.route('/verify', methods=['POST'])
 def verify():
@@ -164,10 +177,12 @@ def forgot_password():
     user.otp_code = otp
     db.session.commit()
     
-    # SEND REAL EMAIL
-    send_real_email_brevo(data['email'], otp)
+    if BREVO_API_KEY:
+        send_real_email_brevo(data['email'], otp)
+    else:
+        print(f"--- LOCAL MODE: OTP IS {otp} ---")
     
-    return jsonify({'message': 'OTP sent to email'})
+    return jsonify({'message': 'OTP sent'})
 
 @app.route('/reset-password', methods=['POST'])
 def reset_password():
@@ -183,7 +198,7 @@ def reset_password():
     
     return jsonify({'message': 'Password reset successful. Please login.'})
 
-# --- EXISTING AI LOGIC (Unchanged) ---
+# --- AI LOGIC ---
 try:
     with open("class_names.txt", "r") as f:
         class_names = [line.strip() for line in f.readlines()]
@@ -192,7 +207,7 @@ try:
     model.load_state_dict(torch.load('pest_model.pth'))
     model.eval()
 except:
-    print("AI Model missing.")
+    print("AI Model missing or failed to load.")
     class_names = []
 
 transform = transforms.Compose([
@@ -262,4 +277,4 @@ def get_history():
     return jsonify(res)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000)
