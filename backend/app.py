@@ -18,6 +18,9 @@ BREVO_API_KEY = os.environ.get("BREVO_API_KEY")
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL")
 
 app = Flask(__name__)
+@app.route('/', methods=['GET'])
+def wake_up():
+    return jsonify({"status": "I am awake!"})
 CORS(app)
 
 # --- DATABASE CONFIGURATION (Cloud & Local Support) ---
