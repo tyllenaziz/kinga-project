@@ -11,7 +11,9 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
-
+# --- MEMORY OPTIMIZATION (Add these lines) ---
+# Tells PyTorch to use less memory/CPU overhead
+torch.set_num_threads(1)
 # --- BREVO EMAIL CONFIGURATION ---
 # Loads from Environment Variables (Safe for GitHub)
 BREVO_API_KEY = os.environ.get("BREVO_API_KEY") 
